@@ -61,7 +61,7 @@ namespace Shadowsocks.View
 
             LoadCurrentConfiguration();
             ConfigUpdater.Initialize(controller, this);
-            ConfigUpdater.CheckUpdateInBackground();
+            ConfigUpdater.CheckUpdateInBackground(true);
         }
 
         private void controller_Errored(object sender, ErrorEventArgs e)
@@ -422,7 +422,7 @@ namespace Shadowsocks.View
 
         private void UpdateConfigItem_Click(object sender, EventArgs e)
         {
-            ConfigUpdater.RefreshConfig(false);
+            ConfigUpdater.CheckUpdateInBackground(false);
         }
 
         private void AutoStartupItem_Click(object sender, EventArgs e)

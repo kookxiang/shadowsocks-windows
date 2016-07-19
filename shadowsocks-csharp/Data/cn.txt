@@ -103,3 +103,5 @@ Failed to update registry=无法修改注册表
 System Proxy On: =系统代理已启用：
 Running: Port {0}=正在运行：端口 {0}
 Traffic: =流量统计: 
+Server list updated=配置文件已更新
+Your client is outdated! Please download a new version from our website.=客户端版本过低! 请登录面板下载新版客户端.

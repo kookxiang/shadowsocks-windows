@@ -35,20 +35,21 @@ namespace Shadowsocks.Controller
             }
             fs.Seek(-128, SeekOrigin.End);
             var buffer = new byte[len];
-            fs.Read(buffer, 0, len);
+            for (var i = 0; i < len; i++)
+            {
+                buffer[i] = (byte) -fs.ReadByte();
+            }
+//            fs.Read(buffer, 0, len);
             ConfigURL = Encoding.Default.GetString(buffer).Trim();
         }
 
-        public static void CheckUpdateInBackground()
+        public static void CheckUpdateInBackground(bool ignoreError)
         {
-            new Thread(delegate()
+            new Thread(() =>
             {
-                Thread.Sleep(100);
-                RefreshConfig(true);
-            })
-            {
-                IsBackground = true
-            }.Start();
+                Thread.CurrentThread.IsBackground = true;
+                RefreshConfig(ignoreError);
+            }).Start();
         }
 
         public static void RefreshConfig(bool ignoreError)
@@ -60,12 +61,19 @@ namespace Shadowsocks.Controller
                 var responseString = new StreamReader(response.GetResponseStream()).ReadToEnd();
                 var newServerConfig = JsonConvert.DeserializeObject<ServerConfig>(responseString);
                 var currentConfig = controller.GetConfigurationCopy();
-                if (newServerConfig.version == currentConfig.version)
+                if (newServerConfig.versionCode == currentConfig.version)
                 {
                     return;
                 }
-                controller.SaveServers(newServerConfig.servers, newServerConfig.version);
-                menuController.ShowBalloonTip(I18N.GetString("Shadowsocks"), "配置文件已更新", ToolTipIcon.Info, 1000);
+                controller.SaveServers(newServerConfig.servers, newServerConfig.versionCode);
+                if (Program.Version != newServerConfig.programVersion)
+                {
+                    menuController.ShowBalloonTip(I18N.GetString("Shadowsocks"), I18N.GetString("Your client is outdated! Please download a new version from our website."), ToolTipIcon.Warning, 1000);
+                }
+                else
+                {
+                    menuController.ShowBalloonTip(I18N.GetString("Shadowsocks"), I18N.GetString("Server list updated"), ToolTipIcon.Info, 1000);
+                }
             }
             catch (Exception e)
             {
@@ -80,8 +88,9 @@ namespace Shadowsocks.Controller
 
         private class ServerConfig
         {
+            public string programVersion;
             public List<Server> servers;
-            public int version;
+            public string versionCode;
         }
     }
 }

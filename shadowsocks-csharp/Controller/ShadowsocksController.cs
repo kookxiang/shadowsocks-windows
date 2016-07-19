@@ -116,10 +116,10 @@ namespace Shadowsocks.Controller
             return GetCurrentServer();
         }
 
-        public void SaveServers(List<Server> servers, int version)
+        public void SaveServers(List<Server> servers, string versionCode)
         {
             _config.configs = servers;
-            _config.version = version;
+            _config.version = versionCode;
             Configuration.Save(_config);
             Reload();
         }
