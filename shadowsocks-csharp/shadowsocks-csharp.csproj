@@ -104,6 +104,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Controller\Service\AvailabilityStatistics.cs" />
+    <Compile Include="Controller\Service\ConfigUpdater.cs" />
     <Compile Include="Controller\Strategy\HighAvailabilityStrategy.cs" />
     <Compile Include="Controller\Strategy\StatisticsStrategy.cs" />
     <Compile Include="Controller\System\AutoStartup.cs" />

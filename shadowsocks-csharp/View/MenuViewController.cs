@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Microsoft.VisualBasic;
 using Shadowsocks.Controller;
 using Shadowsocks.Properties;
+using Shadowsocks.Util;
 
 namespace Shadowsocks.View
 {
@@ -59,8 +60,8 @@ namespace Shadowsocks.View
             _notifyIcon.MouseClick += notifyIcon1_Click;
 
             LoadCurrentConfiguration();
-
-            var config = controller.GetConfigurationCopy();
+            ConfigUpdater.Initialize(controller, this);
+            ConfigUpdater.CheckUpdateInBackground();
         }
 
         private void controller_Errored(object sender, ErrorEventArgs e)
@@ -107,6 +108,7 @@ namespace Shadowsocks.View
             }
             // we want to show more details but notify icon title is limited to 63 characters
             var text = I18N.GetString("Shadowsocks") + " " + Program.Version + "\n" +
+                       I18N.GetString("Traffic: ") + $"{Utils.FormatBandwidth(controller.inboundCounter)} in, {Utils.FormatBandwidth(controller.outboundCounter)} out\n" +
                        (enabled
                            ? I18N.GetString("System Proxy On: ") +
                              (global ? I18N.GetString("Global") : I18N.GetString("PAC"))
@@ -172,6 +174,7 @@ namespace Shadowsocks.View
                 ServersItem = CreateMenuGroup("Servers", new[]
                 {
                     SeperatorItem = new MenuItem("-"),
+                    CreateMenuItem("Download config from server", UpdateConfigItem_Click),
                     CreateMenuItem("Statistics Config...", StatisticsConfigItem_Click)
                 }),
                 CreateMenuGroup("PAC ", new[]
@@ -225,7 +228,7 @@ namespace Shadowsocks.View
             Process.Start("explorer.exe", argument);
         }
 
-        private void ShowBalloonTip(string title, string content, ToolTipIcon icon, int timeout)
+        public void ShowBalloonTip(string title, string content, ToolTipIcon icon, int timeout)
         {
             _notifyIcon.BalloonTipTitle = title;
             _notifyIcon.BalloonTipText = content;
@@ -415,6 +418,11 @@ namespace Shadowsocks.View
         {
             var form = new StatisticsStrategyConfigurationForm(controller);
             form.Show();
+        }
+
+        private void UpdateConfigItem_Click(object sender, EventArgs e)
+        {
+            ConfigUpdater.RefreshConfig(false);
         }
 
         private void AutoStartupItem_Click(object sender, EventArgs e)

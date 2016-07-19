@@ -26,7 +26,7 @@ namespace Shadowsocks.Model
         public int version;
         public LogViewerConfig logViewer;
 
-        private static string CONFIG_FILE = "ss-config.json";
+        private const string CONFIG_FILE = "ss-config.json";
 
         public Server GetCurrentServer()
         {
