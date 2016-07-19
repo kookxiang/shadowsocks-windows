@@ -74,13 +74,14 @@ namespace Shadowsocks.Controller
                     menuController.ShowBalloonTip(I18N.GetString("Failed to download config file"), e.Message,
                         ToolTipIcon.Info, 1000);
                 }
+                Logging.LogUsefulException(e);
             }
         }
 
         private class ServerConfig
         {
-            public int version;
             public List<Server> servers;
+            public int version;
         }
     }
 }
