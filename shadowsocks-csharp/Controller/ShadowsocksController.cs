@@ -293,12 +293,6 @@ namespace Shadowsocks.Controller
             }
         }
 
-        public void ToggleCheckingUpdate(bool enabled)
-        {
-            _config.autoCheckUpdate = enabled;
-            Configuration.Save(_config);
-        }
-
         public void SaveLogViewerConfig(LogViewerConfig newConfig)
         {
             _config.logViewer = newConfig;
