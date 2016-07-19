@@ -19,11 +19,7 @@ namespace Shadowsocks.View
 
         private readonly ShadowsocksController controller;
         private readonly List<LogForm> logForms = new List<LogForm>();
-        private bool _isFirstRun;
-        private string _urlToOpen;
-        private MenuItem autoCheckUpdatesToggleItem;
         private MenuItem AutoStartupItem;
-        private MenuItem ConfigItem;
         private ContextMenu contextMenu1;
         private MenuItem editGFWUserRuleItem;
         private MenuItem editLocalPACItem;
@@ -65,11 +61,6 @@ namespace Shadowsocks.View
             LoadCurrentConfiguration();
 
             var config = controller.GetConfigurationCopy();
-
-            if (config.isDefault)
-            {
-                _isFirstRun = true;
-            }
         }
 
         private void controller_Errored(object sender, ErrorEventArgs e)
