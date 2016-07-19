@@ -20,38 +20,54 @@ namespace Shadowsocks.Controller
     {
         public const string DateTimePattern = "yyyy-MM-dd HH:mm:ss";
         private const string StatisticsFilesName = "shadowsocks.availability.json";
+        public const int TimeoutMilliseconds = 500;
         public static string AvailabilityStatisticsFile;
+
+        //tasks
+        private readonly TimeSpan _delayBeforeStart = TimeSpan.FromSeconds(1);
+        //speed in KiB/s
+        private readonly ConcurrentDictionary<string, long> _inboundCounter = new ConcurrentDictionary<string, long>();
+
+        private readonly ConcurrentDictionary<string, List<int>> _inboundSpeedRecords =
+            new ConcurrentDictionary<string, List<int>>();
+
+        private readonly ConcurrentDictionary<string, long> _lastInboundCounter =
+            new ConcurrentDictionary<string, long>();
+
+        private readonly ConcurrentDictionary<string, long> _lastOutboundCounter =
+            new ConcurrentDictionary<string, long>();
+
+        //records cache for current server in {_monitorInterval} minutes
+        private readonly ConcurrentDictionary<string, List<int>> _latencyRecords =
+            new ConcurrentDictionary<string, List<int>>();
+
+        private readonly TimeSpan _monitorInterval = TimeSpan.FromSeconds(1);
+        private readonly ConcurrentDictionary<string, long> _outboundCounter = new ConcurrentDictionary<string, long>();
+
+        private readonly ConcurrentDictionary<string, List<int>> _outboundSpeedRecords =
+            new ConcurrentDictionary<string, List<int>>();
+
+        private readonly TimeSpan _retryInterval = TimeSpan.FromMinutes(2);
+        //private Timer _writer; //write RawStatistics to file
+        //private readonly TimeSpan _writingInterval = TimeSpan.FromMinutes(1);
+
+        private ShadowsocksController _controller;
+        private Timer _recorder; //analyze and save cached records to RawStatistics and filter records
+        private Timer _speedMonior;
         //static constructor to initialize every public static fields before refereced
         static AvailabilityStatistics()
         {
             AvailabilityStatisticsFile = Utils.GetTempPath(StatisticsFilesName);
         }
 
+        private AvailabilityStatistics()
+        {
+            RawStatistics = new Statistics();
+        }
+
         //arguments for ICMP tests
         private int Repeat => Config.RepeatTimesNum;
-        public const int TimeoutMilliseconds = 500;
-
-        //records cache for current server in {_monitorInterval} minutes
-        private readonly ConcurrentDictionary<string, List<int>> _latencyRecords = new ConcurrentDictionary<string, List<int>>();
-        //speed in KiB/s
-        private readonly ConcurrentDictionary<string, long> _inboundCounter = new ConcurrentDictionary<string, long>();
-        private readonly ConcurrentDictionary<string, long> _lastInboundCounter = new ConcurrentDictionary<string, long>();
-        private readonly ConcurrentDictionary<string, List<int>> _inboundSpeedRecords = new ConcurrentDictionary<string, List<int>>();
-        private readonly ConcurrentDictionary<string, long> _outboundCounter = new ConcurrentDictionary<string, long>();
-        private readonly ConcurrentDictionary<string, long> _lastOutboundCounter = new ConcurrentDictionary<string, long>();
-        private readonly ConcurrentDictionary<string, List<int>> _outboundSpeedRecords = new ConcurrentDictionary<string, List<int>>();
-
-        //tasks
-        private readonly TimeSpan _delayBeforeStart = TimeSpan.FromSeconds(1);
-        private readonly TimeSpan _retryInterval = TimeSpan.FromMinutes(2);
-        private Timer _recorder; //analyze and save cached records to RawStatistics and filter records
         private TimeSpan RecordingInterval => TimeSpan.FromMinutes(Config.DataCollectionMinutes);
-        private Timer _speedMonior;
-        private readonly TimeSpan _monitorInterval = TimeSpan.FromSeconds(1);
-        //private Timer _writer; //write RawStatistics to file
-        //private readonly TimeSpan _writingInterval = TimeSpan.FromMinutes(1);
-
-        private ShadowsocksController _controller;
         private StatisticsStrategyConfiguration Config => _controller.StatisticsConfiguration;
 
         // Static Singleton Initialization
@@ -59,9 +75,10 @@ namespace Shadowsocks.Controller
         public Statistics RawStatistics { get; private set; }
         public Statistics FilteredStatistics { get; private set; }
 
-        private AvailabilityStatistics()
+        public void Dispose()
         {
-            RawStatistics = new Statistics();
+            _recorder.Dispose();
+            _speedMonior.Dispose();
         }
 
         internal void UpdateConfiguration(ShadowsocksController controller)
@@ -196,7 +213,7 @@ namespace Shadowsocks.Controller
                 _inboundSpeedRecords.TryGetValue(id, out inboundSpeedRecords);
                 _outboundSpeedRecords.TryGetValue(id, out outboundSpeedRecords);
                 _latencyRecords.TryGetValue(id, out latencyRecords);
-                StatisticsRecord record = new StatisticsRecord(id, inboundSpeedRecords, outboundSpeedRecords, latencyRecords);
+                var record = new StatisticsRecord(id, inboundSpeedRecords, outboundSpeedRecords, latencyRecords);
                 /* duplicate server identifier */
                 if (records.ContainsKey(id))
                     records[id] = record;
@@ -291,7 +308,8 @@ namespace Shadowsocks.Controller
             catch (Exception e)
             {
                 Logging.LogUsefulException(e);
-                Console.WriteLine($"failed to load statistics; try to reload {_retryInterval.TotalMinutes} minutes later");
+                Console.WriteLine(
+                    $"failed to load statistics; try to reload {_retryInterval.TotalMinutes} minutes later");
                 _recorder.Change(_retryInterval, RecordingInterval);
             }
         }
@@ -300,23 +318,6 @@ namespace Shadowsocks.Controller
         {
             var result = (int) (bytes/seconds)/1024;
             return result;
-        }
-
-        private class ICMPResult
-        {
-            internal readonly List<int?> RoundtripTime = new List<int?>();
-            internal readonly Server Server;
-
-            internal ICMPResult(Server server)
-            {
-                Server = server;
-            }
-        }
-
-        public void Dispose()
-        {
-            _recorder.Dispose();
-            _speedMonior.Dispose();
         }
 
         public void UpdateLatency(Server server, int latency)
@@ -359,6 +360,17 @@ namespace Shadowsocks.Controller
                 _lastOutboundCounter[server.Identifier()] = 0;
             }
             _outboundCounter[server.Identifier()] = count;
+        }
+
+        private class ICMPResult
+        {
+            internal readonly List<int?> RoundtripTime = new List<int?>();
+            internal readonly Server Server;
+
+            internal ICMPResult(Server server)
+            {
+                Server = server;
+            }
         }
     }
 }

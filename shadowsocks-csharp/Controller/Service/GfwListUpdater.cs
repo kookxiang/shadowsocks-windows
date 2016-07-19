@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
-
 using Newtonsoft.Json;
-
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
 using Shadowsocks.Util;
@@ -16,30 +14,21 @@ namespace Shadowsocks.Controller
     {
         private const string GFWLIST_URL = "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt";
 
+        private static readonly IEnumerable<char> IgnoredLineBegins = new[] {'!', '['};
+
         public event EventHandler<ResultEventArgs> UpdateCompleted;
 
         public event ErrorEventHandler Error;
 
-        public class ResultEventArgs : EventArgs
-        {
-            public bool Success;
-
-            public ResultEventArgs(bool success)
-            {
-                this.Success = success;
-            }
-        }
-
-        private static readonly IEnumerable<char> IgnoredLineBegins = new[] { '!', '[' };
         private void http_DownloadStringCompleted(object sender, DownloadStringCompletedEventArgs e)
         {
             try
             {
                 File.WriteAllText(Utils.GetTempPath("gfwlist.txt"), e.Result, Encoding.UTF8);
-                List<string> lines = ParseResult(e.Result);
+                var lines = ParseResult(e.Result);
                 if (File.Exists(PACServer.USER_RULE_FILE))
                 {
-                    string local = File.ReadAllText(PACServer.USER_RULE_FILE, Encoding.UTF8);
+                    var local = File.ReadAllText(PACServer.USER_RULE_FILE, Encoding.UTF8);
                     using (var sr = new StringReader(local))
                     {
                         foreach (var rule in sr.NonWhiteSpaceLines())
@@ -62,7 +51,7 @@ namespace Shadowsocks.Controller
                 abpContent = abpContent.Replace("__RULES__", JsonConvert.SerializeObject(lines, Formatting.Indented));
                 if (File.Exists(PACServer.PAC_FILE))
                 {
-                    string original = File.ReadAllText(PACServer.PAC_FILE, Encoding.UTF8);
+                    var original = File.ReadAllText(PACServer.PAC_FILE, Encoding.UTF8);
                     if (original == abpContent)
                     {
                         UpdateCompleted(this, new ResultEventArgs(false));
@@ -86,7 +75,7 @@ namespace Shadowsocks.Controller
 
         public void UpdatePACFromGFWList(Configuration config)
         {
-            WebClient http = new WebClient();
+            var http = new WebClient();
             http.Proxy = new WebProxy(IPAddress.Loopback.ToString(), config.localPort);
             http.DownloadStringCompleted += http_DownloadStringCompleted;
             http.DownloadStringAsync(new Uri(GFWLIST_URL));
@@ -94,9 +83,9 @@ namespace Shadowsocks.Controller
 
         public static List<string> ParseResult(string response)
         {
-            byte[] bytes = Convert.FromBase64String(response);
-            string content = Encoding.ASCII.GetString(bytes);
-            List<string> valid_lines = new List<string>();
+            var bytes = Convert.FromBase64String(response);
+            var content = Encoding.ASCII.GetString(bytes);
+            var valid_lines = new List<string>();
             using (var sr = new StringReader(content))
             {
                 foreach (var line in sr.NonWhiteSpaceLines())
@@ -107,6 +96,16 @@ namespace Shadowsocks.Controller
                 }
             }
             return valid_lines;
+        }
+
+        public class ResultEventArgs : EventArgs
+        {
+            public bool Success;
+
+            public ResultEventArgs(bool success)
+            {
+                Success = success;
+            }
         }
     }
 }

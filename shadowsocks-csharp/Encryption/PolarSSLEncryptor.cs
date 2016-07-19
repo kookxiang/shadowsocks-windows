@@ -1,33 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading;
 
 namespace Shadowsocks.Encryption
 {
     public class PolarSSLEncryptor
         : IVEncryptor, IDisposable
     {
-        const int CIPHER_AES = 1;
-        const int CIPHER_RC4 = 2;
+        private const int CIPHER_AES = 1;
+        private const int CIPHER_RC4 = 2;
+
+        private static readonly Dictionary<string, int[]> _ciphers = new Dictionary<string, int[]>
+        {
+            {"aes-128-cfb", new[] {16, 16, CIPHER_AES, PolarSSL.AES_CTX_SIZE}},
+            {"aes-192-cfb", new[] {24, 16, CIPHER_AES, PolarSSL.AES_CTX_SIZE}},
+            {"aes-256-cfb", new[] {32, 16, CIPHER_AES, PolarSSL.AES_CTX_SIZE}},
+            {"rc4-md5", new[] {16, 16, CIPHER_RC4, PolarSSL.ARC4_CTX_SIZE}}
+        };
+
+        private IntPtr _decryptCtx = IntPtr.Zero;
 
         private IntPtr _encryptCtx = IntPtr.Zero;
-        private IntPtr _decryptCtx = IntPtr.Zero;
 
         public PolarSSLEncryptor(string method, string password, bool onetimeauth, bool isudp)
             : base(method, password, onetimeauth, isudp)
         {
             InitKey(method, password);
         }
-
-        private static Dictionary<string, int[]> _ciphers = new Dictionary<string, int[]> {
-                {"aes-128-cfb", new int[]{16, 16, CIPHER_AES, PolarSSL.AES_CTX_SIZE}},
-                {"aes-192-cfb", new int[]{24, 16, CIPHER_AES, PolarSSL.AES_CTX_SIZE}},
-                {"aes-256-cfb", new int[]{32, 16, CIPHER_AES, PolarSSL.AES_CTX_SIZE}},
-                {"rc4-md5", new int[]{16, 16, CIPHER_RC4, PolarSSL.ARC4_CTX_SIZE}},
-        };
 
         public static List<string> SupportedCiphers()
         {
@@ -56,7 +55,7 @@ namespace Shadowsocks.Encryption
             byte[] realkey;
             if (_method == "rc4-md5")
             {
-                byte[] temp = new byte[keyLen + ivLen];
+                var temp = new byte[keyLen + ivLen];
                 realkey = new byte[keyLen];
                 Array.Copy(_key, 0, temp, 0, keyLen);
                 Array.Copy(iv, 0, temp, keyLen, ivLen);
@@ -71,7 +70,7 @@ namespace Shadowsocks.Encryption
                 PolarSSL.aes_init(ctx);
                 // PolarSSL takes key length by bit
                 // since we'll use CFB mode, here we both do enc, not dec
-                PolarSSL.aes_setkey_enc(ctx, realkey, keyLen * 8);
+                PolarSSL.aes_setkey_enc(ctx, realkey, keyLen*8);
             }
             else if (_cipher == CIPHER_RC4)
             {
@@ -86,7 +85,7 @@ namespace Shadowsocks.Encryption
             // C# could be multi-threaded
             if (_disposed)
             {
-                throw new ObjectDisposedException(this.ToString());
+                throw new ObjectDisposedException(ToString());
             }
             byte[] iv;
             int ivOffset;
@@ -106,7 +105,8 @@ namespace Shadowsocks.Encryption
             switch (_cipher)
             {
                 case CIPHER_AES:
-                    PolarSSL.aes_crypt_cfb128(ctx, isCipher ? PolarSSL.AES_ENCRYPT : PolarSSL.AES_DECRYPT, length, ref ivOffset, iv, buf, outbuf);
+                    PolarSSL.aes_crypt_cfb128(ctx, isCipher ? PolarSSL.AES_ENCRYPT : PolarSSL.AES_DECRYPT, length,
+                        ref ivOffset, iv, buf, outbuf);
                     if (isCipher)
                     {
                         _encryptIVOffset = ivOffset;
@@ -123,6 +123,7 @@ namespace Shadowsocks.Encryption
         }
 
         #region IDisposable
+
         private bool _disposed;
 
         public override void Dispose()
@@ -179,6 +180,7 @@ namespace Shadowsocks.Encryption
                 }
             }
         }
+
         #endregion
     }
 }

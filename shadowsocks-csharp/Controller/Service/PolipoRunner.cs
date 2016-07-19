@@ -2,21 +2,18 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
 using Shadowsocks.Util;
 
 namespace Shadowsocks.Controller
 {
-    class PolipoRunner
+    internal class PolipoRunner
     {
         private Process _process;
-        private int _runningPort;
 
         static PolipoRunner()
         {
@@ -31,21 +28,15 @@ namespace Shadowsocks.Controller
             }
         }
 
-        public int RunningPort
-        {
-            get
-            {
-                return _runningPort;
-            }
-        }
+        public int RunningPort { get; private set; }
 
         public void Start(Configuration configuration)
         {
-            Server server = configuration.GetCurrentServer();
+            var server = configuration.GetCurrentServer();
             if (_process == null)
             {
-                Process[] existingPolipo = Process.GetProcessesByName("ss_privoxy");
-                foreach (Process p in existingPolipo)
+                var existingPolipo = Process.GetProcessesByName("ss_privoxy");
+                foreach (var p in existingPolipo)
                 {
                     try
                     {
@@ -62,11 +53,12 @@ namespace Shadowsocks.Controller
                         Logging.LogUsefulException(e);
                     }
                 }
-                string polipoConfig = Resources.privoxy_conf;
-                _runningPort = this.GetFreePort();
+                var polipoConfig = Resources.privoxy_conf;
+                RunningPort = GetFreePort();
                 polipoConfig = polipoConfig.Replace("__SOCKS_PORT__", configuration.localPort.ToString());
-                polipoConfig = polipoConfig.Replace("__POLIPO_BIND_PORT__", _runningPort.ToString());
-                polipoConfig = polipoConfig.Replace("__POLIPO_BIND_IP__", configuration.shareOverLan ? "0.0.0.0" : "127.0.0.1");
+                polipoConfig = polipoConfig.Replace("__POLIPO_BIND_PORT__", RunningPort.ToString());
+                polipoConfig = polipoConfig.Replace("__POLIPO_BIND_IP__",
+                    configuration.shareOverLan ? "0.0.0.0" : "127.0.0.1");
                 FileManager.ByteArrayToFile(Utils.GetTempPath("privoxy.conf"), Encoding.UTF8.GetBytes(polipoConfig));
 
                 _process = new Process();
@@ -102,18 +94,18 @@ namespace Shadowsocks.Controller
 
         private int GetFreePort()
         {
-            int defaultPort = 8123;
+            var defaultPort = 8123;
             try
             {
-                IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
-                IPEndPoint[] tcpEndPoints = properties.GetActiveTcpListeners();
+                var properties = IPGlobalProperties.GetIPGlobalProperties();
+                var tcpEndPoints = properties.GetActiveTcpListeners();
 
-                List<int> usedPorts = new List<int>();
-                foreach (IPEndPoint endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners())
+                var usedPorts = new List<int>();
+                foreach (var endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners())
                 {
                     usedPorts.Add(endPoint.Port);
                 }
-                for (int port = defaultPort; port <= 65535; port++)
+                for (var port = defaultPort; port <= 65535; port++)
                 {
                     if (!usedPorts.Contains(port))
                     {
@@ -130,34 +122,33 @@ namespace Shadowsocks.Controller
             throw new Exception("No free port found.");
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        public struct RECT
-        {
-            public int left;
-            public int top;
-            public int right;
-            public int bottom;
-        }
         [DllImport("user32.dll")]
         public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
         [DllImport("user32.dll")]
-        public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+        public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass,
+            string lpszWindow);
+
         [DllImport("user32.dll")]
         public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
         [DllImport("user32.dll")]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, int wParam, int lParam);
 
         public void RefreshTrayArea()
         {
-            IntPtr systemTrayContainerHandle = FindWindow("Shell_TrayWnd", null);
-            IntPtr systemTrayHandle = FindWindowEx(systemTrayContainerHandle, IntPtr.Zero, "TrayNotifyWnd", null);
-            IntPtr sysPagerHandle = FindWindowEx(systemTrayHandle, IntPtr.Zero, "SysPager", null);
-            IntPtr notificationAreaHandle = FindWindowEx(sysPagerHandle, IntPtr.Zero, "ToolbarWindow32", "Notification Area");
+            var systemTrayContainerHandle = FindWindow("Shell_TrayWnd", null);
+            var systemTrayHandle = FindWindowEx(systemTrayContainerHandle, IntPtr.Zero, "TrayNotifyWnd", null);
+            var sysPagerHandle = FindWindowEx(systemTrayHandle, IntPtr.Zero, "SysPager", null);
+            var notificationAreaHandle = FindWindowEx(sysPagerHandle, IntPtr.Zero, "ToolbarWindow32",
+                "Notification Area");
             if (notificationAreaHandle == IntPtr.Zero)
             {
-                notificationAreaHandle = FindWindowEx(sysPagerHandle, IntPtr.Zero, "ToolbarWindow32", "User Promoted Notification Area");
-                IntPtr notifyIconOverflowWindowHandle = FindWindow("NotifyIconOverflowWindow", null);
-                IntPtr overflowNotificationAreaHandle = FindWindowEx(notifyIconOverflowWindowHandle, IntPtr.Zero, "ToolbarWindow32", "Overflow Notification Area");
+                notificationAreaHandle = FindWindowEx(sysPagerHandle, IntPtr.Zero, "ToolbarWindow32",
+                    "User Promoted Notification Area");
+                var notifyIconOverflowWindowHandle = FindWindow("NotifyIconOverflowWindow", null);
+                var overflowNotificationAreaHandle = FindWindowEx(notifyIconOverflowWindowHandle, IntPtr.Zero,
+                    "ToolbarWindow32", "Overflow Notification Area");
                 RefreshTrayArea(overflowNotificationAreaHandle);
             }
             RefreshTrayArea(notificationAreaHandle);
@@ -171,6 +162,15 @@ namespace Shadowsocks.Controller
             for (var x = 0; x < rect.right; x += 5)
                 for (var y = 0; y < rect.bottom; y += 5)
                     SendMessage(windowHandle, wmMousemove, 0, (y << 16) + x);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int left;
+            public int top;
+            public int right;
+            public int bottom;
         }
     }
 }

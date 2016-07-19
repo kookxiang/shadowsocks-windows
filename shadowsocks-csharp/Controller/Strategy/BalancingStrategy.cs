@@ -1,16 +1,13 @@
-﻿using Shadowsocks.Controller;
-using Shadowsocks.Model;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Net;
-using System.Text;
+using Shadowsocks.Model;
 
 namespace Shadowsocks.Controller.Strategy
 {
-    class BalancingStrategy : IStrategy
+    internal class BalancingStrategy : IStrategy
     {
-        ShadowsocksController _controller;
-        Random _random;
+        private readonly ShadowsocksController _controller;
+        private readonly Random _random;
 
         public BalancingStrategy(ShadowsocksController controller)
         {
@@ -45,25 +42,25 @@ namespace Shadowsocks.Controller.Strategy
             {
                 index = localIPEndPoint.GetHashCode();
             }
-            return configs[index % configs.Count];
+            return configs[index%configs.Count];
         }
 
-        public void UpdateLatency(Model.Server server, TimeSpan latency)
+        public void UpdateLatency(Server server, TimeSpan latency)
         {
             // do nothing
         }
 
-        public void UpdateLastRead(Model.Server server)
+        public void UpdateLastRead(Server server)
         {
             // do nothing
         }
 
-        public void UpdateLastWrite(Model.Server server)
+        public void UpdateLastWrite(Server server)
         {
             // do nothing
         }
 
-        public void SetFailure(Model.Server server)
+        public void SetFailure(Server server)
         {
             // do nothing
         }

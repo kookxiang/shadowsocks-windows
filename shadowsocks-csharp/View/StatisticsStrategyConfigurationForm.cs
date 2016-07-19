@@ -12,12 +12,12 @@ namespace Shadowsocks.View
     public partial class StatisticsStrategyConfigurationForm : Form
     {
         private readonly ShadowsocksController _controller;
-        private StatisticsStrategyConfiguration _configuration;
         private readonly DataTable _dataTable = new DataTable();
-        private List<string> _servers;
-        private readonly Series _speedSeries;
         private readonly Series _packageLossSeries;
         private readonly Series _pingSeries;
+        private readonly Series _speedSeries;
+        private StatisticsStrategyConfiguration _configuration;
+        private List<string> _servers;
 
         public StatisticsStrategyConfigurationForm(ShadowsocksController controller)
         {
@@ -30,7 +30,6 @@ namespace Shadowsocks.View
             _controller.ConfigChanged += (sender, args) => LoadConfiguration();
             LoadConfiguration();
             Load += (sender, args) => InitData();
-
         }
 
         private void LoadConfiguration()
@@ -57,13 +56,13 @@ namespace Shadowsocks.View
             serverSelector.DataSource = _servers;
 
             _dataTable.Columns.Add("Timestamp", typeof(DateTime));
-            _dataTable.Columns.Add("Speed", typeof (int));
+            _dataTable.Columns.Add("Speed", typeof(int));
             _speedSeries.XValueMember = "Timestamp";
             _speedSeries.YValueMembers = "Speed";
 
             // might be empty
-            _dataTable.Columns.Add("Package Loss", typeof (int));
-            _dataTable.Columns.Add("Ping", typeof (int));
+            _dataTable.Columns.Add("Package Loss", typeof(int));
+            _dataTable.Columns.Add("Ping", typeof(int));
             _packageLossSeries.XValueMember = "Timestamp";
             _packageLossSeries.YValueMembers = "Package Loss";
             _pingSeries.XValueMember = "Timestamp";
@@ -119,15 +118,17 @@ namespace Shadowsocks.View
                 StatisticsChart.ChartAreas["DataArea"].AxisX2.LabelStyle.Format = "HH:00";
             }
             var finalData = from dataGroup in dataGroups
-                            orderby dataGroup.Key
-                            select new
-                            {
-                                dataGroup.First().Timestamp,
-                                Speed = dataGroup.Max(data => data.MaxInboundSpeed) ?? 0,
-                                Ping = (int) (dataGroup.Average(data => data.AverageResponse) ?? 0),
-                                PackageLossPercentage = (int) (dataGroup.Average(data => data.PackageLoss) ?? 0) * 100
-                            };
-            foreach (var data in finalData.Where(data => data.Speed != 0 || data.PackageLossPercentage != 0 || data.Ping != 0))
+                orderby dataGroup.Key
+                select new
+                {
+                    dataGroup.First().Timestamp,
+                    Speed = dataGroup.Max(data => data.MaxInboundSpeed) ?? 0,
+                    Ping = (int) (dataGroup.Average(data => data.AverageResponse) ?? 0),
+                    PackageLossPercentage = (int) (dataGroup.Average(data => data.PackageLoss) ?? 0)*100
+                };
+            foreach (
+                var data in
+                    finalData.Where(data => data.Speed != 0 || data.PackageLossPercentage != 0 || data.Ping != 0))
             {
                 _dataTable.Rows.Add(data.Timestamp, data.Speed, data.PackageLossPercentage, data.Ping);
             }

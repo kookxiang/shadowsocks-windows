@@ -3,41 +3,29 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-
 using Shadowsocks.Model;
 
 namespace Shadowsocks.Controller
 {
     public class Listener
     {
-        public interface Service
-        {
-            bool Handle(byte[] firstPacket, int length, Socket socket, object state);
-        }
-
-        public class UDPState
-        {
-            public byte[] buffer = new byte[4096];
-            public EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-        }
-
-        Configuration _config;
-        bool _shareOverLAN;
-        Socket _tcpSocket;
-        Socket _udpSocket;
-        IList<Service> _services;
+        private readonly IList<Service> _services;
+        private Configuration _config;
+        private bool _shareOverLAN;
+        private Socket _tcpSocket;
+        private Socket _udpSocket;
 
         public Listener(IList<Service> services)
         {
-            this._services = services;
+            _services = services;
         }
 
         private bool CheckIfPortInUse(int port)
         {
-            IPGlobalProperties ipProperties = IPGlobalProperties.GetIPGlobalProperties();
-            IPEndPoint[] ipEndPoints = ipProperties.GetActiveTcpListeners();
+            var ipProperties = IPGlobalProperties.GetIPGlobalProperties();
+            var ipEndPoints = ipProperties.GetActiveTcpListeners();
 
-            foreach (IPEndPoint endPoint in ipEndPoints)
+            foreach (var endPoint in ipEndPoints)
             {
                 if (endPoint.Port == port)
                 {
@@ -49,8 +37,8 @@ namespace Shadowsocks.Controller
 
         public void Start(Configuration config)
         {
-            this._config = config;
-            this._shareOverLAN = config.shareOverLan;
+            _config = config;
+            _shareOverLAN = config.shareOverLan;
 
             if (CheckIfPortInUse(_config.localPort))
                 throw new Exception(I18N.GetString("Port already in use"));
@@ -79,9 +67,10 @@ namespace Shadowsocks.Controller
 
                 // Start an asynchronous socket to listen for connections.
                 Logging.Info("Shadowsocks started");
-                _tcpSocket.BeginAccept(new AsyncCallback(AcceptCallback), _tcpSocket);
-                UDPState udpState = new UDPState();
-                _udpSocket.BeginReceiveFrom(udpState.buffer, 0, udpState.buffer.Length, 0, ref udpState.remoteEndPoint, new AsyncCallback(RecvFromCallback), udpState);
+                _tcpSocket.BeginAccept(AcceptCallback, _tcpSocket);
+                var udpState = new UDPState();
+                _udpSocket.BeginReceiveFrom(udpState.buffer, 0, udpState.buffer.Length, 0, ref udpState.remoteEndPoint,
+                    RecvFromCallback, udpState);
             }
             catch (SocketException)
             {
@@ -106,11 +95,11 @@ namespace Shadowsocks.Controller
 
         public void RecvFromCallback(IAsyncResult ar)
         {
-            UDPState state = (UDPState)ar.AsyncState;
+            var state = (UDPState) ar.AsyncState;
             try
             {
-                int bytesRead = _udpSocket.EndReceiveFrom(ar, ref state.remoteEndPoint);
-                foreach (Service service in _services)
+                var bytesRead = _udpSocket.EndReceiveFrom(ar, ref state.remoteEndPoint);
+                foreach (var service in _services)
                 {
                     if (service.Handle(state.buffer, bytesRead, _udpSocket, state))
                     {
@@ -128,7 +117,8 @@ namespace Shadowsocks.Controller
             {
                 try
                 {
-                    _udpSocket.BeginReceiveFrom(state.buffer, 0, state.buffer.Length, 0, ref state.remoteEndPoint, new AsyncCallback(RecvFromCallback), state);
+                    _udpSocket.BeginReceiveFrom(state.buffer, 0, state.buffer.Length, 0, ref state.remoteEndPoint,
+                        RecvFromCallback, state);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -142,19 +132,20 @@ namespace Shadowsocks.Controller
 
         public void AcceptCallback(IAsyncResult ar)
         {
-            Socket listener = (Socket)ar.AsyncState;
+            var listener = (Socket) ar.AsyncState;
             try
             {
-                Socket conn = listener.EndAccept(ar);
+                var conn = listener.EndAccept(ar);
 
-                byte[] buf = new byte[4096];
-                object[] state = new object[] {
+                var buf = new byte[4096];
+                object[] state =
+                {
                     conn,
                     buf
                 };
 
                 conn.BeginReceive(buf, 0, buf.Length, 0,
-                    new AsyncCallback(ReceiveCallback), state);
+                    ReceiveCallback, state);
             }
             catch (ObjectDisposedException)
             {
@@ -168,7 +159,7 @@ namespace Shadowsocks.Controller
                 try
                 {
                     listener.BeginAccept(
-                        new AsyncCallback(AcceptCallback),
+                        AcceptCallback,
                         listener);
                 }
                 catch (ObjectDisposedException)
@@ -184,14 +175,14 @@ namespace Shadowsocks.Controller
 
         private void ReceiveCallback(IAsyncResult ar)
         {
-            object[] state = (object[])ar.AsyncState;
+            var state = (object[]) ar.AsyncState;
 
-            Socket conn = (Socket)state[0];
-            byte[] buf = (byte[])state[1];
+            var conn = (Socket) state[0];
+            var buf = (byte[]) state[1];
             try
             {
-                int bytesRead = conn.EndReceive(ar);
-                foreach (Service service in _services)
+                var bytesRead = conn.EndReceive(ar);
+                foreach (var service in _services)
                 {
                     if (service.Handle(buf, bytesRead, conn, null))
                     {
@@ -209,6 +200,17 @@ namespace Shadowsocks.Controller
                 Logging.LogUsefulException(e);
                 conn.Close();
             }
+        }
+
+        public interface Service
+        {
+            bool Handle(byte[] firstPacket, int length, Socket socket, object state);
+        }
+
+        public class UDPState
+        {
+            public byte[] buffer = new byte[4096];
+            public EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
         }
     }
 }

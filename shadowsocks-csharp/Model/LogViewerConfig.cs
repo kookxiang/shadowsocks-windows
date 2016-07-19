@@ -1,5 +1,4 @@
-﻿using Shadowsocks.View;
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -8,17 +7,17 @@ namespace Shadowsocks.Model
     [Serializable]
     public class LogViewerConfig
     {
+        public string bgColor;
         public string fontName;
         public float fontSize;
-        public string bgColor;
-        public string textColor;
-        public bool topMost;
-        public bool wrapText;
-        public bool toolbarShown;
-        public int width;
         public int height;
-        public int top;
         public int left;
+        public string textColor;
+        public bool toolbarShown;
+        public int top;
+        public bool topMost;
+        public int width;
+        public bool wrapText;
 
         public LogViewerConfig()
         {
@@ -38,13 +37,13 @@ namespace Shadowsocks.Model
         // Use GetBestTop() and GetBestLeft() to ensure the log viwer form can be always display IN screen. 
         public int GetBestLeft()
         {
-            width = (width >= 400) ? width : 400;  // set up the minimum size
+            width = width >= 400 ? width : 400; // set up the minimum size
             return Screen.PrimaryScreen.WorkingArea.Width - width;
         }
 
         public int GetBestTop()
         {
-            height = (height >= 200) ? height : 200;  // set up the minimum size
+            height = height >= 200 ? height : 200; // set up the minimum size
             return Screen.PrimaryScreen.WorkingArea.Height - height;
         }
 

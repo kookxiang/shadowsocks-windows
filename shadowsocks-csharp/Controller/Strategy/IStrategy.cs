@@ -1,8 +1,6 @@
-﻿using Shadowsocks.Model;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Net;
-using System.Text;
+using Shadowsocks.Model;
 
 namespace Shadowsocks.Controller.Strategy
 {
@@ -17,6 +15,7 @@ namespace Shadowsocks.Controller.Strategy
      *
      * Subclasses must be thread-safe
      */
+
     public interface IStrategy
     {
         string Name { get; }

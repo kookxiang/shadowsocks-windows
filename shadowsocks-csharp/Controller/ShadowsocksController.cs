@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-
 using Shadowsocks.Controller.Strategy;
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
@@ -17,6 +16,12 @@ namespace Shadowsocks.Controller
 {
     public class ShadowsocksController
     {
+        private static readonly IEnumerable<char> IgnoredLineBegins = new[] {'!', '['};
+        private readonly StrategyManager _strategyManager;
+        private Configuration _config;
+
+        private Listener _listener;
+        private PACServer _pacServer;
         // controller:
         // handle user actions
         // manipulates UI
@@ -24,26 +29,25 @@ namespace Shadowsocks.Controller
 
         private Thread _ramThread;
 
-        private Listener _listener;
-        private PACServer _pacServer;
-        private Configuration _config;
-        private StrategyManager _strategyManager;
-        private PolipoRunner polipoRunner;
-        private GFWListUpdater gfwListUpdater;
+        private bool _systemProxyIsDirty;
         public AvailabilityStatistics availabilityStatistics = AvailabilityStatistics.Instance;
-        public StatisticsStrategyConfiguration StatisticsConfiguration { get; private set; }
+        private GFWListUpdater gfwListUpdater;
 
-        public long inboundCounter = 0;
-        public long outboundCounter = 0;
+        public long inboundCounter;
+        public long outboundCounter;
+        private PolipoRunner polipoRunner;
 
-        private bool stopped = false;
+        private bool stopped;
 
-        private bool _systemProxyIsDirty = false;
-
-        public class PathEventArgs : EventArgs
+        public ShadowsocksController()
         {
-            public string Path;
+            _config = Configuration.Load();
+            StatisticsConfiguration = StatisticsStrategyConfiguration.Load();
+            _strategyManager = new StrategyManager(this);
+            StartReleasingMemory();
         }
+
+        public StatisticsStrategyConfiguration StatisticsConfiguration { get; private set; }
 
         public event EventHandler ConfigChanged;
         public event EventHandler EnableStatusChanged;
@@ -59,14 +63,6 @@ namespace Shadowsocks.Controller
         public event ErrorEventHandler UpdatePACFromGFWListError;
 
         public event ErrorEventHandler Errored;
-
-        public ShadowsocksController()
-        {
-            _config = Configuration.Load();
-            StatisticsConfiguration = StatisticsStrategyConfiguration.Load();
-            _strategyManager = new StrategyManager(this);
-            StartReleasingMemory();
-        }
 
         public void Start()
         {
@@ -107,7 +103,7 @@ namespace Shadowsocks.Controller
         {
             foreach (var strategy in _strategyManager.GetStrategies())
             {
-                if (strategy.ID == this._config.strategy)
+                if (strategy.ID == _config.strategy)
                 {
                     return strategy;
                 }
@@ -117,7 +113,7 @@ namespace Shadowsocks.Controller
 
         public Server GetAServer(IStrategyCallerType type, IPEndPoint localIPEndPoint)
         {
-            IStrategy strategy = GetCurrentStrategy();
+            var strategy = GetCurrentStrategy();
             if (strategy != null)
             {
                 return strategy.GetAServer(type, localIPEndPoint);
@@ -228,34 +224,34 @@ namespace Shadowsocks.Controller
 
         public void TouchPACFile()
         {
-            string pacFilename = _pacServer.TouchPACFile();
+            var pacFilename = _pacServer.TouchPACFile();
             if (PACFileReadyToOpen != null)
             {
-                PACFileReadyToOpen(this, new PathEventArgs() { Path = pacFilename });
+                PACFileReadyToOpen(this, new PathEventArgs {Path = pacFilename});
             }
         }
 
         public void TouchUserRuleFile()
         {
-            string userRuleFilename = _pacServer.TouchUserRuleFile();
+            var userRuleFilename = _pacServer.TouchUserRuleFile();
             if (UserRuleFileReadyToOpen != null)
             {
-                UserRuleFileReadyToOpen(this, new PathEventArgs() { Path = userRuleFilename });
+                UserRuleFileReadyToOpen(this, new PathEventArgs {Path = userRuleFilename});
             }
         }
 
         public string GetQRCodeForCurrentServer()
         {
-            Server server = GetCurrentServer();
+            var server = GetCurrentServer();
             return GetQRCode(server);
         }
 
         public static string GetQRCode(Server server)
         {
-            string parts = server.method;
+            var parts = server.method;
             if (server.auth) parts += "-auth";
             parts += ":" + server.password + "@" + server.server + ":" + server.server_port;
-            string base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(parts));
+            var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(parts));
             return "ss://" + base64;
         }
 
@@ -380,9 +376,9 @@ namespace Shadowsocks.Controller
 
                 polipoRunner.Start(_config);
 
-                TCPRelay tcpRelay = new TCPRelay(this);
-                UDPRelay udpRelay = new UDPRelay(this);
-                List<Listener.Service> services = new List<Listener.Service>();
+                var tcpRelay = new TCPRelay(this);
+                var udpRelay = new UDPRelay(this);
+                var services = new List<Listener.Service>();
                 services.Add(tcpRelay);
                 services.Add(udpRelay);
                 services.Add(_pacServer);
@@ -396,7 +392,7 @@ namespace Shadowsocks.Controller
                 // i.e. An attempt was made to access a socket in a way forbidden by its access permissions => Port already in use
                 if (e is SocketException)
                 {
-                    SocketException se = (SocketException)e;
+                    var se = (SocketException) e;
                     if (se.SocketErrorCode == SocketError.AccessDenied)
                     {
                         e = new Exception(I18N.GetString("Port already in use"), e);
@@ -456,7 +452,6 @@ namespace Shadowsocks.Controller
                 UpdatePACFromGFWListError(this, e);
         }
 
-        private static readonly IEnumerable<char> IgnoredLineBegins = new[] { '!', '[' };
         private void pacServer_UserRuleFileChanged(object sender, EventArgs e)
         {
             // TODO: this is a dirty hack. (from code GListUpdater.http_DownloadStringCompleted())
@@ -465,10 +460,10 @@ namespace Shadowsocks.Controller
                 UpdatePACFromGFWList();
                 return;
             }
-            List<string> lines = GFWListUpdater.ParseResult(File.ReadAllText(Utils.GetTempPath("gfwlist.txt")));
+            var lines = GFWListUpdater.ParseResult(File.ReadAllText(Utils.GetTempPath("gfwlist.txt")));
             if (File.Exists(PACServer.USER_RULE_FILE))
             {
-                string local = File.ReadAllText(PACServer.USER_RULE_FILE, Encoding.UTF8);
+                var local = File.ReadAllText(PACServer.USER_RULE_FILE, Encoding.UTF8);
                 using (var sr = new StringReader(local))
                 {
                     foreach (var rule in sr.NonWhiteSpaceLines())
@@ -491,7 +486,7 @@ namespace Shadowsocks.Controller
             abpContent = abpContent.Replace("__RULES__", JsonConvert.SerializeObject(lines, Formatting.Indented));
             if (File.Exists(PACServer.PAC_FILE))
             {
-                string original = File.ReadAllText(PACServer.PAC_FILE, Encoding.UTF8);
+                var original = File.ReadAllText(PACServer.PAC_FILE, Encoding.UTF8);
                 if (original == abpContent)
                 {
                     return;
@@ -502,7 +497,7 @@ namespace Shadowsocks.Controller
 
         private void StartReleasingMemory()
         {
-            _ramThread = new Thread(new ThreadStart(ReleaseMemory));
+            _ramThread = new Thread(ReleaseMemory);
             _ramThread.IsBackground = true;
             _ramThread.Start();
         }
@@ -512,9 +507,13 @@ namespace Shadowsocks.Controller
             while (true)
             {
                 Utils.ReleaseMemory(false);
-                Thread.Sleep(30 * 1000);
+                Thread.Sleep(30*1000);
             }
         }
 
+        public class PathEventArgs : EventArgs
+        {
+            public string Path;
+        }
     }
 }

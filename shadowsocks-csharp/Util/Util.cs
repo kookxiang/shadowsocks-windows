@@ -3,15 +3,15 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
-
 using Shadowsocks.Controller;
 
 namespace Shadowsocks.Util
 {
     public class Utils
     {
-        private static string TempPath = null;
+        private static string TempPath;
 
         // return path to store temporary files
         public static string GetTempPath()
@@ -76,17 +76,17 @@ namespace Shadowsocks.Util
                 //
                 // just kidding
                 SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle,
-                    (UIntPtr)0xFFFFFFFF, (UIntPtr)0xFFFFFFFF);
+                    (UIntPtr) 0xFFFFFFFF, (UIntPtr) 0xFFFFFFFF);
             }
         }
 
         public static string UnGzip(byte[] buf)
         {
-            byte[] buffer = new byte[1024];
+            var buffer = new byte[1024];
             int n;
-            using (MemoryStream sb = new MemoryStream())
+            using (var sb = new MemoryStream())
             {
-                using (GZipStream input = new GZipStream(new MemoryStream(buf),
+                using (var input = new GZipStream(new MemoryStream(buf),
                     CompressionMode.Decompress, false))
                 {
                     while ((n = input.Read(buffer, 0, buffer.Length)) > 0)
@@ -94,32 +94,32 @@ namespace Shadowsocks.Util
                         sb.Write(buffer, 0, n);
                     }
                 }
-                return System.Text.Encoding.UTF8.GetString(sb.ToArray());
+                return Encoding.UTF8.GetString(sb.ToArray());
             }
         }
 
         public static string FormatBandwidth(long n)
         {
             float f = n;
-            string unit = "B";
+            var unit = "B";
             if (f > 1024)
             {
-                f = f / 1024;
+                f = f/1024;
                 unit = "KiB";
             }
             if (f > 1024)
             {
-                f = f / 1024;
+                f = f/1024;
                 unit = "MiB";
             }
             if (f > 1024)
             {
-                f = f / 1024;
+                f = f/1024;
                 unit = "GiB";
             }
             if (f > 1024)
             {
-                f = f / 1024;
+                f = f/1024;
                 unit = "TiB";
             }
             return $"{f:0.##}{unit}";

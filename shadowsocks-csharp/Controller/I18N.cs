@@ -2,14 +2,14 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using Shadowsocks.Properties;
 
 namespace Shadowsocks.Controller
 {
-    using Shadowsocks.Properties;
-
     public class I18N
     {
         protected static Dictionary<string, string> Strings;
+
         static I18N()
         {
             Strings = new Dictionary<string, string>();
@@ -38,10 +38,7 @@ namespace Shadowsocks.Controller
             {
                 return Strings[key];
             }
-            else
-            {
-                return key;
-            }
+            return key;
         }
     }
 }

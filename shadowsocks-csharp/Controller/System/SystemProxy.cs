@@ -1,22 +1,24 @@
-﻿using System.Windows.Forms;
-using Microsoft.Win32;
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+using Microsoft.Win32;
 using Shadowsocks.Model;
 
 namespace Shadowsocks.Controller
 {
     public static class SystemProxy
     {
+        public const int INTERNET_OPTION_SETTINGS_CHANGED = 39;
+        public const int INTERNET_OPTION_REFRESH = 37;
+        private static bool _settingsReturn;
+        private static bool _refreshReturn;
+
+        private static readonly DateTime UnixEpoch
+            = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         [DllImport("wininet.dll")]
         public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int dwBufferLength);
-        public const int INTERNET_OPTION_SETTINGS_CHANGED = 39;
-        public const int INTERNET_OPTION_REFRESH = 37;
-        static bool _settingsReturn, _refreshReturn;
 
         public static void NotifyIE()
         {
@@ -26,10 +28,9 @@ namespace Shadowsocks.Controller
             _refreshReturn = InternetSetOption(IntPtr.Zero, INTERNET_OPTION_REFRESH, IntPtr.Zero, 0);
         }
 
-        private static readonly DateTime UnixEpoch
-            = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         public static long ToUnixEpochMilliseconds(this DateTime dt)
-            => (long)(dt - UnixEpoch).TotalMilliseconds;
+            => (long) (dt - UnixEpoch).TotalMilliseconds;
+
         private static string GetTimestamp(DateTime value)
         {
             return value.ToString("yyyyMMddHHmmssfff");
@@ -37,8 +38,8 @@ namespace Shadowsocks.Controller
 
         public static void Update(Configuration config, bool forceDisable)
         {
-            bool global = config.global;
-            bool enabled = config.enabled;
+            var global = config.global;
+            var enabled = config.enabled;
 
             if (forceDisable)
             {
@@ -54,7 +55,7 @@ namespace Shadowsocks.Controller
                     if (global)
                     {
                         registry.SetValue("ProxyEnable", 1);
-                        registry.SetValue("ProxyServer", "127.0.0.1:" + config.localPort.ToString());
+                        registry.SetValue("ProxyServer", "127.0.0.1:" + config.localPort);
                         registry.SetValue("AutoConfigURL", "");
                     }
                     else
@@ -123,28 +124,31 @@ namespace Shadowsocks.Controller
         }
 
         /// <summary>
-        /// Checks or unchecks the IE Options Connection setting of "Automatically detect Proxy"
+        ///     Checks or unchecks the IE Options Connection setting of "Automatically detect Proxy"
         /// </summary>
-        /// <param name="set">Provide 'true' if you want to check the 'Automatically detect Proxy' check box. To uncheck, pass 'false'</param>
+        /// <param name="set">
+        ///     Provide 'true' if you want to check the 'Automatically detect Proxy' check box. To uncheck, pass
+        ///     'false'
+        /// </param>
         private static void IEAutoDetectProxy(bool set)
         {
             var registry = Registry.CurrentUser
                 .OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings\Connections", true);
-            var defConnection = (byte[])registry.GetValue("DefaultConnectionSettings");
-            var savedLegacySetting = (byte[])registry.GetValue("SavedLegacySettings");
+            var defConnection = (byte[]) registry.GetValue("DefaultConnectionSettings");
+            var savedLegacySetting = (byte[]) registry.GetValue("SavedLegacySettings");
 
             const int versionOffset = 4;
             const int optionsOffset = 8;
 
             if (set)
             {
-                defConnection[optionsOffset] = (byte)(defConnection[optionsOffset] | 8);
-                savedLegacySetting[optionsOffset] = (byte)(savedLegacySetting[optionsOffset] | 8);
+                defConnection[optionsOffset] = (byte) (defConnection[optionsOffset] | 8);
+                savedLegacySetting[optionsOffset] = (byte) (savedLegacySetting[optionsOffset] | 8);
             }
             else
             {
-                defConnection[optionsOffset] = (byte)(defConnection[optionsOffset] & ~8);
-                savedLegacySetting[optionsOffset] = (byte)(savedLegacySetting[optionsOffset] & ~8);
+                defConnection[optionsOffset] = (byte) (defConnection[optionsOffset] & ~8);
+                savedLegacySetting[optionsOffset] = (byte) (savedLegacySetting[optionsOffset] & ~8);
             }
 
             BitConverter.GetBytes(

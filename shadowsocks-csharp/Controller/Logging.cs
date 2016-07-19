@@ -1,9 +1,8 @@
 ﻿using System;
-using System.IO;
-using System.Net.Sockets;
-using System.Net;
 using System.Diagnostics;
-
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using Shadowsocks.Util;
 
 namespace Shadowsocks.Controller
@@ -18,8 +17,8 @@ namespace Shadowsocks.Controller
             {
                 LogFilePath = Utils.GetTempPath("shadowsocks.log");
 
-                FileStream fs = new FileStream(LogFilePath, FileMode.Append);
-                StreamWriterWithTimestamp sw = new StreamWriterWithTimestamp(fs);
+                var fs = new FileStream(LogFilePath, FileMode.Append);
+                var sw = new StreamWriterWithTimestamp(fs);
                 sw.AutoFlush = true;
                 Console.SetOut(sw);
                 Console.SetError(sw);
@@ -78,7 +77,7 @@ namespace Shadowsocks.Controller
             // just log useful exceptions, not all of them
             if (e is SocketException)
             {
-                SocketException se = (SocketException)e;
+                var se = (SocketException) e;
                 if (se.SocketErrorCode == SocketError.ConnectionAborted)
                 {
                     // closed by browser when sending
@@ -137,5 +136,4 @@ namespace Shadowsocks.Controller
             base.Write(GetTimestamp() + value);
         }
     }
-
 }

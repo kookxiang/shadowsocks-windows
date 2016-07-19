@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
-
 using Shadowsocks.Controller;
 using Shadowsocks.Properties;
 using Shadowsocks.Util;
@@ -10,11 +9,13 @@ namespace Shadowsocks.Encryption
 {
     public class MbedTLS
     {
-        const string DLLNAME = "libsscrypto";
+        private const string DLLNAME = "libsscrypto";
+
+        public const int MD5_CTX_SIZE = 88;
 
         static MbedTLS()
         {
-            string dllPath = Utils.GetTempPath("libsscrypto.dll");
+            var dllPath = Utils.GetTempPath("libsscrypto.dll");
             try
             {
                 FileManager.UncompressFile(dllPath, Resources.libsscrypto_dll);
@@ -32,16 +33,14 @@ namespace Shadowsocks.Encryption
         [DllImport("Kernel32.dll")]
         private static extern IntPtr LoadLibrary(string path);
 
-        public const int MD5_CTX_SIZE = 88;
-
         public static byte[] MD5(byte[] input)
         {
-            byte[] output = new byte[16];
-            MbedTLS.md5(input, (uint)input.Length, output);
+            var output = new byte[16];
+            md5(input, (uint) input.Length, output);
             return output;
         }
 
         [DllImport(DLLNAME, CallingConvention = CallingConvention.Cdecl)]
-        public extern static void md5(byte[] input, uint ilen, byte[] output);
+        public static extern void md5(byte[] input, uint ilen, byte[] output);
     }
 }

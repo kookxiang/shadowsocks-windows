@@ -17,7 +17,7 @@ namespace Shadowsocks.Controller
             catch (Exception ex)
             {
                 Console.WriteLine("Exception caught in process: {0}",
-                                  ex.ToString());
+                    ex);
             }
             return false;
         }
@@ -26,10 +26,10 @@ namespace Shadowsocks.Controller
         {
             // Because the uncompressed size of the file is unknown,
             // we are using an arbitrary buffer size.
-            byte[] buffer = new byte[4096];
+            var buffer = new byte[4096];
             int n;
 
-            using(var fs = File.Create(fileName))
+            using (var fs = File.Create(fileName))
             using (var input = new GZipStream(
                 new MemoryStream(content),
                 CompressionMode.Decompress, false))
@@ -40,6 +40,5 @@ namespace Shadowsocks.Controller
                 }
             }
         }
-
     }
 }

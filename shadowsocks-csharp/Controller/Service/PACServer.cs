@@ -4,35 +4,26 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
 using Shadowsocks.Util;
 
 namespace Shadowsocks.Controller
 {
-    class PACServer : Listener.Service
+    internal class PACServer : Listener.Service
     {
         public static readonly string PAC_FILE = "pac.txt";
         public static readonly string USER_RULE_FILE = "user-rule.txt";
         public static readonly string USER_ABP_FILE = "abp.txt";
-
-        FileSystemWatcher PACFileWatcher;
-        FileSystemWatcher UserRuleFileWatcher;
         private Configuration _config;
 
-        public event EventHandler PACFileChanged;
-        public event EventHandler UserRuleFileChanged;
+        private FileSystemWatcher PACFileWatcher;
+        private FileSystemWatcher UserRuleFileWatcher;
 
         public PACServer()
         {
-            this.WatchPacFile();
-            this.WatchUserRuleFile();
-        }
-
-        public void UpdateConfiguration(Configuration config)
-        {
-            this._config = config;
+            WatchPacFile();
+            WatchUserRuleFile();
         }
 
         public bool Handle(byte[] firstPacket, int length, Socket socket, object state)
@@ -43,17 +34,17 @@ namespace Shadowsocks.Controller
             }
             try
             {
-                string request = Encoding.UTF8.GetString(firstPacket, 0, length);
-                string[] lines = request.Split('\r', '\n');
+                var request = Encoding.UTF8.GetString(firstPacket, 0, length);
+                var lines = request.Split('\r', '\n');
                 bool hostMatch = false, pathMatch = false, useSocks = false;
-                foreach (string line in lines)
+                foreach (var line in lines)
                 {
-                    string[] kv = line.Split(new char[] { ':' }, 2);
+                    var kv = line.Split(new[] {':'}, 2);
                     if (kv.Length == 2)
                     {
                         if (kv[0] == "Host")
                         {
-                            if (kv[1].Trim() == ((IPEndPoint)socket.LocalEndPoint).ToString())
+                            if (kv[1].Trim() == ((IPEndPoint) socket.LocalEndPoint).ToString())
                             {
                                 hostMatch = true;
                             }
@@ -88,17 +79,22 @@ namespace Shadowsocks.Controller
             }
         }
 
+        public event EventHandler PACFileChanged;
+        public event EventHandler UserRuleFileChanged;
+
+        public void UpdateConfiguration(Configuration config)
+        {
+            _config = config;
+        }
+
         public string TouchPACFile()
         {
             if (File.Exists(PAC_FILE))
             {
                 return PAC_FILE;
             }
-            else
-            {
-                FileManager.UncompressFile(PAC_FILE, Resources.proxy_pac_txt);
-                return PAC_FILE;
-            }
+            FileManager.UncompressFile(PAC_FILE, Resources.proxy_pac_txt);
+            return PAC_FILE;
         }
 
         internal string TouchUserRuleFile()
@@ -107,11 +103,8 @@ namespace Shadowsocks.Controller
             {
                 return USER_RULE_FILE;
             }
-            else
-            {
-                File.WriteAllText(USER_RULE_FILE, Resources.user_rule);
-                return USER_RULE_FILE;
-            }
+            File.WriteAllText(USER_RULE_FILE, Resources.user_rule);
+            return USER_RULE_FILE;
         }
 
         private string GetPACContent()
@@ -120,33 +113,30 @@ namespace Shadowsocks.Controller
             {
                 return File.ReadAllText(PAC_FILE, Encoding.UTF8);
             }
-            else
-            {
-                return Utils.UnGzip(Resources.proxy_pac_txt);
-            }
+            return Utils.UnGzip(Resources.proxy_pac_txt);
         }
 
         public void SendResponse(byte[] firstPacket, int length, Socket socket, bool useSocks)
         {
             try
             {
-                string pac = GetPACContent();
+                var pac = GetPACContent();
 
-                IPEndPoint localEndPoint = (IPEndPoint)socket.LocalEndPoint;
+                var localEndPoint = (IPEndPoint) socket.LocalEndPoint;
 
-                string proxy = GetPACAddress(firstPacket, length, localEndPoint, useSocks);
+                var proxy = GetPACAddress(firstPacket, length, localEndPoint, useSocks);
 
                 pac = pac.Replace("__PROXY__", proxy);
 
-                string text = String.Format(@"HTTP/1.1 200 OK
+                var text = string.Format(@"HTTP/1.1 200 OK
 Server: Shadowsocks
 Content-Type: application/x-ns-proxy-autoconfig
 Content-Length: {0}
 Connection: Close
 
 ", Encoding.UTF8.GetBytes(pac).Length) + pac;
-                byte[] response = Encoding.UTF8.GetBytes(text);
-                socket.BeginSend(response, 0, response.Length, 0, new AsyncCallback(SendCallback), socket);
+                var response = Encoding.UTF8.GetBytes(text);
+                socket.BeginSend(response, 0, response.Length, 0, SendCallback, socket);
                 Utils.ReleaseMemory(true);
             }
             catch (Exception e)
@@ -158,13 +148,14 @@ Connection: Close
 
         private void SendCallback(IAsyncResult ar)
         {
-            Socket conn = (Socket)ar.AsyncState;
+            var conn = (Socket) ar.AsyncState;
             try
             {
                 conn.Shutdown(SocketShutdown.Send);
             }
             catch
-            { }
+            {
+            }
         }
 
         private void WatchPacFile()
@@ -190,7 +181,8 @@ Connection: Close
                 UserRuleFileWatcher.Dispose();
             }
             UserRuleFileWatcher = new FileSystemWatcher(Directory.GetCurrentDirectory());
-            UserRuleFileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName;
+            UserRuleFileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName |
+                                               NotifyFilters.DirectoryName;
             UserRuleFileWatcher.Filter = USER_RULE_FILE;
             UserRuleFileWatcher.Changed += UserRuleFileWatcher_Changed;
             UserRuleFileWatcher.Created += UserRuleFileWatcher_Changed;
@@ -199,15 +191,34 @@ Connection: Close
             UserRuleFileWatcher.EnableRaisingEvents = true;
         }
 
+        private string GetPACAddress(byte[] requestBuf, int length, IPEndPoint localEndPoint, bool useSocks)
+        {
+            //try
+            //{
+            //    string requestString = Encoding.UTF8.GetString(requestBuf);
+            //    if (requestString.IndexOf("AppleWebKit") >= 0)
+            //    {
+            //        string address = "" + localEndPoint.Address + ":" + config.GetCurrentServer().local_port;
+            //        proxy = "SOCKS5 " + address + "; SOCKS " + address + ";";
+            //    }
+            //}
+            //catch (Exception e)
+            //{
+            //    Logging.LogUsefulException(e);
+            //}
+            return (useSocks ? "SOCKS5 " : "PROXY ") + localEndPoint.Address + ":" + _config.localPort + ";";
+        }
+
         #region FileSystemWatcher.OnChanged()
+
         // FileSystemWatcher Changed event is raised twice
         // http://stackoverflow.com/questions/1764809/filesystemwatcher-changed-event-is-raised-twice
-        private static Hashtable fileChangedTime = new Hashtable();
+        private static readonly Hashtable fileChangedTime = new Hashtable();
 
         private void PACFileWatcher_Changed(object sender, FileSystemEventArgs e)
         {
-            string path = e.FullPath.ToString();
-            string currentLastWriteTime = File.GetLastWriteTime(e.FullPath).ToString();
+            var path = e.FullPath;
+            var currentLastWriteTime = File.GetLastWriteTime(e.FullPath).ToString();
 
             // if there is no path info stored yet or stored path has different time of write then the one now is inspected
             if (!fileChangedTime.ContainsKey(path) || fileChangedTime[path].ToString() != currentLastWriteTime)
@@ -225,8 +236,8 @@ Connection: Close
 
         private void UserRuleFileWatcher_Changed(object sender, FileSystemEventArgs e)
         {
-            string path = e.FullPath.ToString();
-            string currentLastWriteTime = File.GetLastWriteTime(e.FullPath).ToString();
+            var path = e.FullPath;
+            var currentLastWriteTime = File.GetLastWriteTime(e.FullPath).ToString();
 
             // if there is no path info stored yet or stored path has different time of write then the one now is inspected
             if (!fileChangedTime.ContainsKey(path) || fileChangedTime[path].ToString() != currentLastWriteTime)
@@ -240,24 +251,7 @@ Connection: Close
                 fileChangedTime[path] = currentLastWriteTime;
             }
         }
-        #endregion
 
-        private string GetPACAddress(byte[] requestBuf, int length, IPEndPoint localEndPoint, bool useSocks)
-        {
-            //try
-            //{
-            //    string requestString = Encoding.UTF8.GetString(requestBuf);
-            //    if (requestString.IndexOf("AppleWebKit") >= 0)
-            //    {
-            //        string address = "" + localEndPoint.Address + ":" + config.GetCurrentServer().local_port;
-            //        proxy = "SOCKS5 " + address + "; SOCKS " + address + ";";
-            //    }
-            //}
-            //catch (Exception e)
-            //{
-            //    Logging.LogUsefulException(e);
-            //}
-            return (useSocks ? "SOCKS5 " : "PROXY ") + localEndPoint.Address + ":" + this._config.localPort + ";";
-        }
+        #endregion
     }
 }

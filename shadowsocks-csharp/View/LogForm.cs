@@ -1,22 +1,24 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-
 using Shadowsocks.Controller;
-using Shadowsocks.Properties;
 using Shadowsocks.Model;
+using Shadowsocks.Properties;
 using Shadowsocks.Util;
 
 namespace Shadowsocks.View
 {
     public partial class LogForm : Form
     {
-        long lastOffset;
-        string filename;
-        Timer timer;
-        const int BACK_OFFSET = 65536;
-        ShadowsocksController controller;
+        private const int BACK_OFFSET = 65536;
+        private readonly ShadowsocksController controller;
+        private readonly string filename;
+        private long lastOffset;
+        private Timer timer;
+
+        private bool toolbarTrigger;
 
         public LogForm(ShadowsocksController controller, string filename)
         {
@@ -25,12 +27,13 @@ namespace Shadowsocks.View
             InitializeComponent();
             Icon = Icon.FromHandle(Resources.ssw128.GetHicon());
 
-            LogViewerConfig config = controller.GetConfigurationCopy().logViewer;
+            var config = controller.GetConfigurationCopy().logViewer;
             if (config == null)
             {
                 config = new LogViewerConfig();
             }
-            else {
+            else
+            {
                 topMostTrigger = config.topMost;
                 wrapTextTrigger = config.wrapText;
                 toolbarTrigger = config.toolbarShown;
@@ -67,8 +70,8 @@ namespace Shadowsocks.View
 
         private void InitContent()
         {
-            using (StreamReader reader = new StreamReader(new FileStream(filename,
-                     FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
+            using (var reader = new StreamReader(new FileStream(filename,
+                FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
             {
                 if (reader.BaseStream.Length > BACK_OFFSET)
                 {
@@ -76,7 +79,7 @@ namespace Shadowsocks.View
                     reader.ReadLine();
                 }
 
-                string line = "";
+                var line = "";
                 while ((line = reader.ReadLine()) != null)
                     LogMessageTextBox.AppendText(line + Environment.NewLine);
 
@@ -88,13 +91,13 @@ namespace Shadowsocks.View
 
         private void UpdateContent()
         {
-            using (StreamReader reader = new StreamReader(new FileStream(filename,
-                     FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
+            using (var reader = new StreamReader(new FileStream(filename,
+                FileMode.Open, FileAccess.Read, FileShare.ReadWrite)))
             {
                 reader.BaseStream.Seek(lastOffset, SeekOrigin.Begin);
 
-                string line = "";
-                bool changed = false;
+                var line = "";
+                var changed = false;
                 while ((line = reader.ReadLine()) != null)
                 {
                     changed = true;
@@ -109,8 +112,8 @@ namespace Shadowsocks.View
                 lastOffset = reader.BaseStream.Position;
             }
 
-            this.Text = I18N.GetString("Log Viewer") +
-                $" [in: {Utils.FormatBandwidth(controller.inboundCounter)}, out: {Utils.FormatBandwidth(controller.outboundCounter)}]";
+            Text = I18N.GetString("Log Viewer") +
+                   $" [in: {Utils.FormatBandwidth(controller.inboundCounter)}, out: {Utils.FormatBandwidth(controller.outboundCounter)}]";
         }
 
         private void LogForm_Load(object sender, EventArgs e)
@@ -122,7 +125,7 @@ namespace Shadowsocks.View
             timer.Tick += Timer_Tick;
             timer.Start();
 
-            LogViewerConfig config = controller.GetConfigurationCopy().logViewer;
+            var config = controller.GetConfigurationCopy().logViewer;
             if (config == null)
                 config = new LogViewerConfig();
             Height = config.height;
@@ -144,7 +147,7 @@ namespace Shadowsocks.View
         private void LogForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             timer.Stop();
-            LogViewerConfig config = controller.GetConfigurationCopy().logViewer;
+            var config = controller.GetConfigurationCopy().logViewer;
             if (config == null)
                 config = new LogViewerConfig();
             config.topMost = topMostTrigger;
@@ -162,9 +165,9 @@ namespace Shadowsocks.View
 
         private void OpenLocationMenuItem_Click(object sender, EventArgs e)
         {
-            string argument = "/select, \"" + filename + "\"";
+            var argument = "/select, \"" + filename + "\"";
             Logging.Debug(argument);
-            System.Diagnostics.Process.Start("explorer.exe", argument);
+            Process.Start("explorer.exe", argument);
         }
 
         private void ExitMenuItem_Click(object sender, EventArgs e)
@@ -177,7 +180,15 @@ namespace Shadowsocks.View
             LogMessageTextBox.ScrollToCaret();
         }
 
+        private void ShowToolbarMenuItem_Click(object sender, EventArgs e)
+        {
+            toolbarTrigger = !toolbarTrigger;
+            ToolbarFlowLayoutPanel.Visible = toolbarTrigger;
+            ShowToolbarMenuItem.Checked = toolbarTrigger;
+        }
+
         #region Clean up the content in LogMessageTextBox.
+
         private void DoCleanLogs()
         {
             LogMessageTextBox.Clear();
@@ -192,14 +203,16 @@ namespace Shadowsocks.View
         {
             DoCleanLogs();
         }
+
         #endregion
 
         #region Change the font settings applied in LogMessageTextBox.
+
         private void DoChangeFont()
         {
             try
             {
-                FontDialog fd = new FontDialog();
+                var fd = new FontDialog();
                 fd.Font = LogMessageTextBox.Font;
                 if (fd.ShowDialog() == DialogResult.OK)
                 {
@@ -222,11 +235,13 @@ namespace Shadowsocks.View
         {
             DoChangeFont();
         }
+
         #endregion
 
         #region Trigger the log messages to wrapable, or not.
-        bool wrapTextTrigger = false;
-        bool wrapTextTriggerLock = false;
+
+        private bool wrapTextTrigger;
+        private bool wrapTextTriggerLock;
 
         private void TriggerWrapText()
         {
@@ -255,11 +270,13 @@ namespace Shadowsocks.View
                 TriggerWrapText();
             }
         }
+
         #endregion
 
         #region Trigger the window to top most, or not.
-        bool topMostTrigger = false;
-        bool topMostTriggerLock = false;
+
+        private bool topMostTrigger;
+        private bool topMostTriggerLock;
 
         private void TriggerTopMost()
         {
@@ -287,15 +304,7 @@ namespace Shadowsocks.View
                 TriggerTopMost();
             }
         }
+
         #endregion
-
-        private bool toolbarTrigger = false;
-
-        private void ShowToolbarMenuItem_Click(object sender, EventArgs e)
-        {
-            toolbarTrigger = !toolbarTrigger;
-            ToolbarFlowLayoutPanel.Visible = toolbarTrigger;
-            ShowToolbarMenuItem.Checked = toolbarTrigger;
-        }
     }
 }
