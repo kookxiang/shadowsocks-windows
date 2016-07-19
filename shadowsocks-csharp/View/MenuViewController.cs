@@ -4,10 +4,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 
-using ZXing;
-using ZXing.Common;
-using ZXing.QrCode;
-
 using Shadowsocks.Controller;
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
@@ -22,13 +18,11 @@ namespace Shadowsocks.View
         // and it should just do anything related to the config form
 
         private ShadowsocksController controller;
-        private UpdateChecker updateChecker;
 
         private NotifyIcon _notifyIcon;
         private ContextMenu contextMenu1;
 
         private bool _isFirstRun;
-        private bool _isStartupChecking;
         private MenuItem enableItem;
         private MenuItem modeItem;
         private MenuItem AutoStartupItem;
@@ -45,7 +39,6 @@ namespace Shadowsocks.View
         private MenuItem editGFWUserRuleItem;
         private MenuItem editOnlinePACItem;
         private MenuItem autoCheckUpdatesToggleItem;
-        private ConfigForm configForm;
         private List<LogForm> logForms = new List<LogForm>();
         private bool logFormsVisible = false;
         private string _urlToOpen;
@@ -70,14 +63,8 @@ namespace Shadowsocks.View
             UpdateTrayIcon();
             _notifyIcon.Visible = true;
             _notifyIcon.ContextMenu = contextMenu1;
-            _notifyIcon.BalloonTipClicked += notifyIcon1_BalloonTipClicked;
             _notifyIcon.MouseClick += notifyIcon1_Click;
-            _notifyIcon.MouseDoubleClick += notifyIcon1_DoubleClick;
-            _notifyIcon.BalloonTipClosed += _notifyIcon_BalloonTipClosed;
-
-            this.updateChecker = new UpdateChecker();
-            updateChecker.CheckUpdateCompleted += updateChecker_CheckUpdateCompleted;
-
+            
             LoadCurrentConfiguration();
 
             Configuration config = controller.GetConfigurationCopy();
@@ -85,12 +72,6 @@ namespace Shadowsocks.View
             if (config.isDefault)
             {
                 _isFirstRun = true;
-                ShowConfigForm();
-            }
-            else if(config.autoCheckUpdate)
-            {
-                _isStartupChecking = true;
-                updateChecker.CheckUpdate(config, 3000);
             }
         }
 
@@ -136,7 +117,7 @@ namespace Shadowsocks.View
                 serverInfo = config.GetCurrentServer().FriendlyName();
             }
             // we want to show more details but notify icon title is limited to 63 characters
-            string text = I18N.GetString("Shadowsocks") + " " + UpdateChecker.Version + "\n" +
+            string text = I18N.GetString("Shadowsocks") + " " + Program.Version + "\n" +
                 (enabled ?
                     I18N.GetString("System Proxy On: ") + (global ? I18N.GetString("Global") : I18N.GetString("PAC")) :
                     String.Format(I18N.GetString("Running: Port {0}"), config.localPort))  // this feedback is very important because they need to know Shadowsocks is running
@@ -197,10 +178,7 @@ namespace Shadowsocks.View
                 }),
                 this.ServersItem = CreateMenuGroup("Servers", new MenuItem[] {
                     this.SeperatorItem = new MenuItem("-"),
-                    this.ConfigItem = CreateMenuItem("Edit Servers...", new EventHandler(this.Config_Click)),
-                    CreateMenuItem("Statistics Config...", StatisticsConfigItem_Click),
-                    CreateMenuItem("Show QRCode...", new EventHandler(this.QRCodeItem_Click)),
-                    CreateMenuItem("Scan QRCode from Screen...", new EventHandler(this.ScanQRCodeItem_Click))
+                    CreateMenuItem("Statistics Config...", StatisticsConfigItem_Click)
                 }),
                 CreateMenuGroup("PAC ", new MenuItem[] {
                     this.localPACItem = CreateMenuItem("Local PAC", new EventHandler(this.LocalPACItem_Click)),
@@ -214,14 +192,7 @@ namespace Shadowsocks.View
                 new MenuItem("-"),
                 this.AutoStartupItem = CreateMenuItem("Start on Boot", new EventHandler(this.AutoStartupItem_Click)),
                 this.ShareOverLANItem = CreateMenuItem("Allow Clients from LAN", new EventHandler(this.ShareOverLANItem_Click)),
-                new MenuItem("-"),
                 CreateMenuItem("Show Logs...", new EventHandler(this.ShowLogItem_Click)),
-                CreateMenuGroup("Updates...", new MenuItem[] {
-                    CreateMenuItem("Check for Updates...", new EventHandler(this.checkUpdatesItem_Click)),
-                    new MenuItem("-"),
-                    this.autoCheckUpdatesToggleItem = CreateMenuItem("Check for Updates at Startup", new EventHandler(this.autoCheckUpdatesToggleItem_Click)),
-                }),
-                CreateMenuItem("About...", new EventHandler(this.AboutItem_Click)),
                 new MenuItem("-"),
                 CreateMenuItem("Quit", new EventHandler(this.Quit_Click))
             });
@@ -276,41 +247,7 @@ namespace Shadowsocks.View
             string result = e.Success ? I18N.GetString("PAC updated") : I18N.GetString("No updates found. Please report to GFWList if you have problems with it.");
             ShowBalloonTip(I18N.GetString("Shadowsocks"), result, ToolTipIcon.Info, 1000);
         }
-
-        void updateChecker_CheckUpdateCompleted(object sender, EventArgs e)
-        {
-            if (updateChecker.NewVersionFound)
-            {
-                ShowBalloonTip(String.Format(I18N.GetString("Shadowsocks {0} Update Found"), updateChecker.LatestVersionNumber), I18N.GetString("Click here to update"), ToolTipIcon.Info, 5000);
-            }
-            else if (!_isStartupChecking)
-            {
-                ShowBalloonTip(I18N.GetString("Shadowsocks"), I18N.GetString("No update is available"), ToolTipIcon.Info, 5000);
-            }
-            _isStartupChecking = false;
-        }
-
-        void notifyIcon1_BalloonTipClicked(object sender, EventArgs e)
-        {
-            if (updateChecker.NewVersionFound)
-            {
-                updateChecker.NewVersionFound = false; /* Reset the flag */
-                if (System.IO.File.Exists(updateChecker.LatestVersionLocalName))
-                {
-                    string argument = "/select, \"" + updateChecker.LatestVersionLocalName + "\"";
-                    System.Diagnostics.Process.Start("explorer.exe", argument);
-                }
-            }
-        }
-
-        private void _notifyIcon_BalloonTipClosed(object sender, EventArgs e)
-        {
-            if (updateChecker.NewVersionFound)
-            {
-                updateChecker.NewVersionFound = false; /* Reset the flag */
-            }
-        }
-
+        
         private void LoadCurrentConfiguration()
         {
             Configuration config = controller.GetConfigurationCopy();
@@ -324,7 +261,6 @@ namespace Shadowsocks.View
             onlinePACItem.Checked = onlinePACItem.Enabled && config.useOnlinePac;
             localPACItem.Checked = !onlinePACItem.Checked;
             UpdatePACItemsEnabledStatus();
-            UpdateUpdateMenu();
         }
 
         private void UpdateServersMenu()
@@ -362,21 +298,7 @@ namespace Shadowsocks.View
                 }
             }
         }
-
-        private void ShowConfigForm()
-        {
-            if (configForm != null)
-            {
-                configForm.Activate();
-            }
-            else
-            {
-                configForm = new ConfigForm(controller);
-                configForm.Show();
-                configForm.FormClosed += configForm_FormClosed;
-            }
-        }
-
+        
         private void ShowLogForms()
         {
             if (logForms.Count == 0)
@@ -403,38 +325,11 @@ namespace Shadowsocks.View
             logForms.Remove((LogForm)sender);
         }
 
-        void configForm_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            configForm = null;
-            Utils.ReleaseMemory(true);
-            if (_isFirstRun)
-            {
-                CheckUpdateForFirstRun();
-                ShowFirstTimeBalloon();
-                _isFirstRun = false;
-            }
-        }
-
-        private void Config_Click(object sender, EventArgs e)
-        {
-            ShowConfigForm();
-        }
-
         private void Quit_Click(object sender, EventArgs e)
         {
             controller.Stop();
             _notifyIcon.Visible = false;
             Application.Exit();
-        }
-
-        private void CheckUpdateForFirstRun()
-        {
-            Configuration config = controller.GetConfigurationCopy();
-            if (!config.isDefault)
-            {
-                _isStartupChecking = true;
-                updateChecker.CheckUpdate(config, 3000);
-            }
         }
 
         private void ShowFirstTimeBalloon()
@@ -443,11 +338,6 @@ namespace Shadowsocks.View
             _notifyIcon.BalloonTipText = I18N.GetString("You can turn on/off Shadowsocks in the context menu");
             _notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
             _notifyIcon.ShowBalloonTip(0);
-        }
-
-        private void AboutItem_Click(object sender, EventArgs e)
-        {
-            Process.Start("https://github.com/shadowsocks/shadowsocks-windows");
         }
 
         private void notifyIcon1_Click(object sender, MouseEventArgs e)
@@ -459,14 +349,6 @@ namespace Shadowsocks.View
             else if (e.Button == MouseButtons.Middle)
             {
                 ShowLogForms();
-            }
-        }
-
-        private void notifyIcon1_DoubleClick(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                ShowConfigForm();
             }
         }
 
@@ -531,108 +413,6 @@ namespace Shadowsocks.View
         {
             StatisticsStrategyConfigurationForm form = new StatisticsStrategyConfigurationForm(controller);
             form.Show();
-        }
-
-        private void QRCodeItem_Click(object sender, EventArgs e)
-        {
-            QRCodeForm qrCodeForm = new QRCodeForm(controller.GetQRCodeForCurrentServer());
-            //qrCodeForm.Icon = this.Icon;
-            // TODO
-            qrCodeForm.Show();
-        }
-
-        private void ScanQRCodeItem_Click(object sender, EventArgs e)
-        {
-            foreach (Screen screen in Screen.AllScreens)
-            {
-                using (Bitmap fullImage = new Bitmap(screen.Bounds.Width,
-                                                screen.Bounds.Height))
-                {
-                    using (Graphics g = Graphics.FromImage(fullImage))
-                    {
-                        g.CopyFromScreen(screen.Bounds.X,
-                                         screen.Bounds.Y,
-                                         0, 0,
-                                         fullImage.Size,
-                                         CopyPixelOperation.SourceCopy);
-                    }
-                    int maxTry = 10;
-                    for (int i = 0; i < maxTry; i++)
-                    {
-                        int marginLeft = (int)((double)fullImage.Width * i / 2.5 / maxTry);
-                        int marginTop = (int)((double)fullImage.Height * i / 2.5 / maxTry);
-                        Rectangle cropRect = new Rectangle(marginLeft, marginTop, fullImage.Width - marginLeft * 2, fullImage.Height - marginTop * 2);
-                        Bitmap target = new Bitmap(screen.Bounds.Width, screen.Bounds.Height);
-
-                        double imageScale = (double)screen.Bounds.Width / (double)cropRect.Width;
-                        using (Graphics g = Graphics.FromImage(target))
-                        {
-                            g.DrawImage(fullImage, new Rectangle(0, 0, target.Width, target.Height),
-                                            cropRect,
-                                            GraphicsUnit.Pixel);
-                        }
-                        var source = new BitmapLuminanceSource(target);
-                        var bitmap = new BinaryBitmap(new HybridBinarizer(source));
-                        QRCodeReader reader = new QRCodeReader();
-                        var result = reader.decode(bitmap);
-                        if (result != null)
-                        {
-                            var success = controller.AddServerBySSURL(result.Text);
-                            QRCodeSplashForm splash = new QRCodeSplashForm();
-                            if (success)
-                            {
-                                splash.FormClosed += splash_FormClosed;
-                            }
-                            else if (result.Text.StartsWith("http://") || result.Text.StartsWith("https://"))
-                            {
-                                _urlToOpen = result.Text;
-                                splash.FormClosed += openURLFromQRCode;
-                            }
-                            else
-                            {
-                                MessageBox.Show(I18N.GetString("Failed to decode QRCode"));
-                                return;
-                            }
-                            double minX = Int32.MaxValue, minY = Int32.MaxValue, maxX = 0, maxY = 0;
-                            foreach (ResultPoint point in result.ResultPoints)
-                            {
-                                minX = Math.Min(minX, point.X);
-                                minY = Math.Min(minY, point.Y);
-                                maxX = Math.Max(maxX, point.X);
-                                maxY = Math.Max(maxY, point.Y);
-                            }
-                            minX /= imageScale;
-                            minY /= imageScale;
-                            maxX /= imageScale;
-                            maxY /= imageScale;
-                            // make it 20% larger
-                            double margin = (maxX - minX) * 0.20f;
-                            minX += -margin + marginLeft;
-                            maxX += margin + marginLeft;
-                            minY += -margin + marginTop;
-                            maxY += margin + marginTop;
-                            splash.Location = new Point(screen.Bounds.X, screen.Bounds.Y);
-                            // we need a panel because a window has a minimal size
-                            // TODO: test on high DPI
-                            splash.TargetRect = new Rectangle((int)minX + screen.Bounds.X, (int)minY + screen.Bounds.Y, (int)maxX - (int)minX, (int)maxY - (int)minY);
-                            splash.Size = new Size(fullImage.Width, fullImage.Height);
-                            splash.Show();
-                            return;
-                        }
-                    }
-                }
-            }
-            MessageBox.Show(I18N.GetString("No QRCode found. Try to zoom in or move it to the center of the screen."));
-        }
-
-        void splash_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            ShowConfigForm();
-        }
-
-        void openURLFromQRCode(object sender, FormClosedEventArgs e)
-        {
-            Process.Start(_urlToOpen);
         }
 
         private void AutoStartupItem_Click(object sender, EventArgs e)
@@ -702,24 +482,6 @@ namespace Shadowsocks.View
                 this.editGFWUserRuleItem.Enabled = false;
                 this.editOnlinePACItem.Enabled = true;
             }
-        }
-
-        private void UpdateUpdateMenu()
-        {
-            Configuration configuration = controller.GetConfigurationCopy();
-            autoCheckUpdatesToggleItem.Checked = configuration.autoCheckUpdate;
-        }
-
-        private void autoCheckUpdatesToggleItem_Click(object sender, EventArgs e)
-        {
-            Configuration configuration = controller.GetConfigurationCopy();
-            controller.ToggleCheckingUpdate(!configuration.autoCheckUpdate);
-            UpdateUpdateMenu();
-        }
-
-        private void checkUpdatesItem_Click(object sender, EventArgs e)
-        {
-            updateChecker.CheckUpdate(controller.GetConfigurationCopy());
         }
     }
 }

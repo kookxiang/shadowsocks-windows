@@ -23,10 +23,10 @@ namespace Shadowsocks.Model
         public string pacUrl;
         public bool useOnlinePac;
         public bool availabilityStatistics;
-        public bool autoCheckUpdate;
+        public int version;
         public LogViewerConfig logViewer;
 
-        private static string CONFIG_FILE = "gui-config.json";
+        private static string CONFIG_FILE = "ss-config.json";
 
         public Server GetCurrentServer()
         {
@@ -65,7 +65,7 @@ namespace Shadowsocks.Model
                     index = 0,
                     isDefault = true,
                     localPort = 1080,
-                    autoCheckUpdate = true,
+                    version = 0,
                     configs = new List<Server>()
                     {
                         GetDefaultServer()
