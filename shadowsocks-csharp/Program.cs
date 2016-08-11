@@ -52,8 +52,7 @@ namespace Shadowsocks {
                     }
                 }
                 if (foundFuckingSoft) {
-                    var result = MessageBox.Show("为了您的人身及水表安全，请先卸载 360 相关软件后再运行.", "温馨提示", MessageBoxButtons.RetryCancel,
-                        MessageBoxIcon.Error);
+                    var result = MessageBox.Show("为了您的人身及水表安全，请先卸载 360 相关软件后再运行.", "温馨提示", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
                     if (result == DialogResult.Retry) {
                         goto findFuckingSoft;
                     }

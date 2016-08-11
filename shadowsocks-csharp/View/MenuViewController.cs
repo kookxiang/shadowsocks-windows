@@ -36,6 +36,7 @@ namespace Shadowsocks.View
         private MenuItem ServersItem;
         private MenuItem ShareOverLANItem;
         private MenuItem updateFromGFWListItem;
+        private MenuItem myAccountItem;
 
         public MenuViewController(ShadowsocksController controller)
         {
@@ -193,9 +194,14 @@ namespace Shadowsocks.View
                 AutoStartupItem = CreateMenuItem("Start on Boot", AutoStartupItem_Click),
                 ShareOverLANItem = CreateMenuItem("Allow Clients from LAN", ShareOverLANItem_Click),
                 CreateMenuItem("Show Logs...", ShowLogItem_Click),
+                myAccountItem = CreateMenuItem("My Account...", MyAccount_Click),
                 new MenuItem("-"),
                 CreateMenuItem("Quit", Quit_Click)
             });
+        }
+
+        private void MyAccount_Click(object sender, EventArgs e) {
+            Process.Start(ConfigUpdater.PanelURL);
         }
 
         private void controller_ConfigChanged(object sender, EventArgs e)
@@ -230,10 +236,7 @@ namespace Shadowsocks.View
 
         public void ShowBalloonTip(string title, string content, ToolTipIcon icon, int timeout)
         {
-            _notifyIcon.BalloonTipTitle = title;
-            _notifyIcon.BalloonTipText = content;
-            _notifyIcon.BalloonTipIcon = icon;
-            _notifyIcon.ShowBalloonTip(timeout);
+            _notifyIcon.ShowBalloonTip(timeout, title, content, icon);
         }
 
         private void controller_UpdatePACFromGFWListError(object sender, ErrorEventArgs e)
@@ -264,6 +267,7 @@ namespace Shadowsocks.View
             onlinePACItem.Checked = onlinePACItem.Enabled && config.useOnlinePac;
             localPACItem.Checked = !onlinePACItem.Checked;
             UpdatePACItemsEnabledStatus();
+            myAccountItem.Enabled = ConfigUpdater.PanelURL != "";
         }
 
         private void UpdateServersMenu()
